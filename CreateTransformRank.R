@@ -65,8 +65,6 @@ pivot_df <- pivot_df %>%
   mutate(Actual_xGA = ifelse(Location == "Home", `Away xG`,
                              `Home xG`))
 
-write.csv(pivot_df,'results_202122.csv')
-
 list_of_teams <- unique(pivot_df$Team)
 
 binded_df <- data.frame()
@@ -114,10 +112,6 @@ ranking_df <- binded_df %>%
            Rank_GA+
            Rank_GF)%>%
   mutate(Power_Ranking = rank(Power_Calc, ties.method = 'min'))
-
-
-write_csv(binded_df,'pivotted_Data.csv')
-write_csv(ranking_df,"power_rank_df.csv")
 
 
 #####Plot
