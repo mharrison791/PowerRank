@@ -6,7 +6,7 @@ library(scales)
 
 
 temppal <- c('#36a1d6', '#76b8de', '#a0bfd9', '#ffffff', '#d88359', '#d65440', '#c62c34')
-Season_H2H <- read_csv("~/R/Football/Fbref ddata/CurrentSeason_Results.txt")
+Season_H2H <- read_csv("CurrentSeason_Results.csv")
 
 
 image_url <- 'https://images.fotmob.com/image_resources/logo/teamlogo/'
@@ -132,7 +132,7 @@ table_df <- joined_df %>%
 
 reactable(
   table_df,
-  theme = fivethirtyeight(),
+  theme = fivethirtyeight(header_font_size = 11),
   pagination = FALSE,
   columnGroups = list(
     colGroup(name = "Actual", columns = c("Total_GF","Total_GA","GD")),
@@ -143,8 +143,10 @@ reactable(
                            align = "center",
                            maxWidth = 60),
     Team = colDef(name='',
-                  align = 'center'),
+                  align = 'center',
+                  maxWidth = 100),
     iconurl = colDef(name = '',
+                     maxWidth = 60,
                      cell = embed_img(
                        height = 25,
                        width = 25)
@@ -158,42 +160,42 @@ reactable(
     ),
     Total_GF = colDef(
       maxWidth = 60,
-      name = "Goals For",
+      name = "GF",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal)
     ),
     Total_xG = colDef(
       maxWidth = 60,
-      name = "xGoals For",
+      name = "GF",
       align = "center",
       style= color_scales(table_df,
                           colors = temppal)
     ),
     Total_GA = colDef(
       maxWidth = 60,
-      name = "Goals Against",
+      name = "GA",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal)
     ),
     Total_xGA = colDef(
       maxWidth = 60,
-      name = "xGoals Against",
+      name = "GA",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal)
     ),
     GD = colDef(
       maxWidth = 60,
-      name = "Goal Difference",
+      name = "GD",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal)
     ),
     xGD = colDef(
       maxWidth = 60,
-      name = "xGoal Difference",
+      name = "GD",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal)
@@ -206,4 +208,6 @@ reactable(
                          number_fmt = number_format(accuracy = 0.1))
       )
     )
-  )
+  )%>%
+  add_title("Premier League Power Rankings - Last 6 games", margin = margin(0, 0, 10, 0)) %>%
+  add_source("Table created by: Matt Harrison with {reactablefmtr} •  Data: fbref.com", font_size = 12)
