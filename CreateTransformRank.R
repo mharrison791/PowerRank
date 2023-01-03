@@ -81,6 +81,27 @@ binded_df <- binded_df %>%
   mutate(cum_Actual_Goals = cumsum(Actual_GF))%>%
   mutate(cum_XGF = cumsum(Actual_xG))
 
+
+#### All Games
+all_games_df <- binded_df %>%
+  group_by(Team)%>%
+  summarise(MP = n(),
+    Total_GF = sum(Actual_GF),
+            Total_GA = sum(Actual_GA),
+            Total_xG = sum(Actual_xG),
+            Total_xGA = sum(Actual_xGA),
+            Points = sum(Points),
+            GD = sum(Actual_GD),
+            xGD = round(sum(x_GD),1),
+            Differential = sum(sum(Actual_GD-x_GD)))%>%
+  mutate(Season_xG = (Total_xG/MP)*38)%>%
+  mutate(Season_xGA = (Total_xGA/MP)*38)%>%
+  mutate(xPosition_season = round(8.133+(-0.181*Season_xG)+(Season_xGA*0.228),1))%>%
+  select(Team,xPosition_season)%>%
+  ungroup()
+
+
+#### Get most recent games
 most_recent_games <- 6
 
 ranking_df <- binded_df %>%
@@ -110,7 +131,12 @@ ranking_df <- binded_df %>%
            Rank_xG+
            Rank_GA+
            Rank_GF)%>%
-  mutate(Power_Ranking = rank(Power_Calc, ties.method = 'min'))
+  mutate(Power_Ranking = rank(Power_Calc, ties.method = 'min'))%>%
+  mutate(Season_xG = (Total_GF/6)*38)%>%
+  mutate(Season_xGA = (Total_GA/6)*38)%>%
+  mutate(xPosition_form = round(8.133 +(Season_xG*-0.181)+(Season_xGA *0.228),1))
+
+ranking_df <- left_join(ranking_df,all_games_df, by = c("Team"="Team"))
 
 
 #####Plot
@@ -125,7 +151,7 @@ binded_df %>%
 joined_df <- left_join(ranking_df,icons_df, by = c("Team"="Home"))
 
 table_df <- joined_df %>%
-  select(Power_Ranking,Team,iconurl,Points,Total_GF,Total_xG,Total_GA,Total_xGA, GD, xGD,Differential)%>%
+  select(Power_Ranking,Team,iconurl,Points,Total_GF,Total_xG,Total_GA,Total_xGA, GD, xGD,Differential, xPosition_form, xPosition_season)%>%
   arrange(Power_Ranking)
 
 
@@ -135,7 +161,8 @@ reactable(
   pagination = FALSE,
   columnGroups = list(
     colGroup(name = "Actual", columns = c("Total_GF","Total_GA","GD")),
-    colGroup(name = "Expected", columns = c("Total_xG","Total_xGA","xGD"))
+    colGroup(name = "Expected", columns = c("Total_xG","Total_xGA","xGD")),
+    colGroup(name = "Relative Position", columns = c("xPosition_form", "xPosition_season"))
   ),
   columns = list(
     Power_Ranking = colDef(name = "Power Rank",
@@ -206,7 +233,21 @@ reactable(
                          text_position = "outside-end",
                          fill_color = temppal,
                          number_fmt = number_format(accuracy = 0.1))
-      )
+      ),
+    xPosition_form = colDef(
+      maxWidth = 60,
+      name = "Relative Position",
+      align = "center",
+      style = color_scales(table_df,
+                           colors = temppal)
+    ),
+    xPosition_season = colDef(
+      maxWidth = 60,
+      name = "Season Expectation",
+      align = "center",
+      style = color_scales(table_df,
+                           colors = temppal)
+    )
     )
   )%>%
   add_title("Premier League Power Rankings - Last 6 games", margin = margin(0, 0, 10, 0)) %>%
