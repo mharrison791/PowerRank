@@ -81,6 +81,7 @@ binded_df <- binded_df %>%
   mutate(cum_Actual_Goals = cumsum(Actual_GF))%>%
   mutate(cum_XGF = cumsum(Actual_xG))
 
+write.csv(binded_df, 'completeresults.csv')
 
 #### All Games
 all_games_df <- binded_df %>%
@@ -138,6 +139,37 @@ ranking_df <- binded_df %>%
 
 ranking_df <- left_join(ranking_df,all_games_df, by = c("Team"="Team"))
 
+prev_ranking_df <- binded_df %>%
+  filter(RecentGames > 1 & RecentGames <= most_recent_games + 1)%>%
+  group_by(Team)%>%
+  summarise(Total_GF = sum(Actual_GF),
+            Total_GA = sum(Actual_GA),
+            Total_xG = sum(Actual_xG),
+            Total_xGA = sum(Actual_xGA),
+            Points = sum(Points),
+            GD = sum(Actual_GD),
+            xGD = round(sum(x_GD),1),
+            Differential = sum(sum(Actual_GD-x_GD)))%>%
+  mutate(Rank_GF = rank(desc(Total_GF), ties.method = 'min'))%>%
+  mutate(Rank_GA = rank(Total_GA, ties.method = 'min'))%>%
+  mutate(Rank_xG = rank(desc(Total_xG), ties.method = 'min'))%>%
+  mutate(Rank_xGA = rank(Total_xGA, ties.method = 'min'))%>%
+  mutate(Rank_Points = rank(desc(Points), ties.method = 'min'))%>%
+  mutate(Rank_GD = rank(desc(GD), ties.method = 'min'))%>%
+  mutate(Rank_xGD = rank(desc(xGD), ties.method = 'min'))%>%
+  mutate(Rank_Differential = rank(desc(Differential), ties.method = 'min'))%>%
+  mutate(Power_Calc = Rank_Differential+
+           Rank_xGD+
+           Rank_GD+
+           Rank_Points+
+           Rank_xGA+
+           Rank_xG+
+           Rank_GA+
+           Rank_GF)%>%
+  mutate(Prev_Power_Ranking = rank(Power_Calc, ties.method = 'min'))%>%
+  select(Team,Prev_Power_Ranking)
+
+ranking_df <- left_join(ranking_df,prev_ranking_df, by = c("Team"="Team"))
 
 #####Plot
 
@@ -149,9 +181,11 @@ binded_df %>%
   theme_dark()
 
 joined_df <- left_join(ranking_df,icons_df, by = c("Team"="Home"))
+joined_df
 
 table_df <- joined_df %>%
-  select(Power_Ranking,Team,iconurl,Points,Total_GF,Total_xG,Total_GA,Total_xGA, GD, xGD,Differential, xPosition_form, xPosition_season)%>%
+  mutate(Change = paste0("(",Power_Ranking - Prev_Power_Ranking,")"))%>%
+  select(Power_Ranking,Change,iconurl,Team,Points,Total_GF,Total_xG,Total_GA,Total_xGA, GD, xGD,Differential, xPosition_form, xPosition_season)%>%
   arrange(Power_Ranking)
 
 
@@ -165,17 +199,20 @@ reactable(
     colGroup(name = "Relative Position", columns = c("xPosition_form", "xPosition_season"))
   ),
   columns = list(
-    Power_Ranking = colDef(name = "Power Rank",
+    Power_Ranking = colDef(name = "Power Rank (Change)",
                            align = "center",
-                           maxWidth = 60),
-    Team = colDef(name='',
-                  align = 'center',
-                  maxWidth = 150),
+                           cell = merge_column(table_df, "Change", merged_position = "right"),
+                           maxWidth = 100),
+    Change = colDef(show = FALSE),
     iconurl = colDef(name = '',
                      maxWidth = 60,
                      cell = embed_img(
                        height = 20,
                        width = 20)
+    ),
+    Team = colDef(name='',
+                  align = 'center',
+                  maxWidth = 150
     ),
     Points = colDef(
       maxWidth = 60,
@@ -235,18 +272,18 @@ reactable(
                          number_fmt = number_format(accuracy = 0.1))
       ),
     xPosition_form = colDef(
-      maxWidth = 60,
+      maxWidth = 80,
       name = "Relative Position",
       align = "center",
       style = color_scales(table_df,
-                           colors = temppal)
+                           colors = temppal_rev)
     ),
     xPosition_season = colDef(
-      maxWidth = 60,
+      maxWidth = 80,
       name = "Season Expectation",
       align = "center",
       style = color_scales(table_df,
-                           colors = temppal)
+                           colors = temppal_rev)
     )
     )
   )%>%
