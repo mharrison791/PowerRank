@@ -79,7 +79,8 @@ for (i in list_of_teams){
 binded_df <- binded_df %>%
   group_by(Team) %>%
   mutate(cum_Actual_Goals = cumsum(Actual_GF))%>%
-  mutate(cum_XGF = cumsum(Actual_xG))
+  mutate(cum_XGF = cumsum(Actual_xG))%>%
+  mutate(W = if_else(Points==3,1,0))
 
 write.csv(binded_df, 'completeresults.csv')
 
@@ -88,16 +89,17 @@ all_games_df <- binded_df %>%
   group_by(Team)%>%
   summarise(MP = n(),
     Total_GF = sum(Actual_GF),
-            Total_GA = sum(Actual_GA),
-            Total_xG = sum(Actual_xG),
-            Total_xGA = sum(Actual_xGA),
-            Points = sum(Points),
-            GD = sum(Actual_GD),
-            xGD = round(sum(x_GD),1),
-            Differential = sum(sum(Actual_GD-x_GD)))%>%
+    Total_GA = sum(Actual_GA),
+    Total_xG = sum(Actual_xG),
+    Total_xGA = sum(Actual_xGA),
+    Points = sum(Points),
+    GD = sum(Actual_GD),
+    xGD = round(sum(x_GD),1),
+    Differential = sum(sum(Actual_GD-x_GD)),
+    WP = sum(W/MP))%>%
   mutate(Season_xG = (Total_xG/MP)*38)%>%
   mutate(Season_xGA = (Total_xGA/MP)*38)%>%
-  mutate(xPosition_season = round(8.133+(-0.181*Season_xG)+(Season_xGA*0.228),1))%>%
+  mutate(xPosition_season = round(18.687+(0.008*Season_xG)+(Season_xGA*0.052)+(WP*-29.141),1))%>%
   select(Team,xPosition_season)%>%
   ungroup()
 
@@ -115,7 +117,8 @@ ranking_df <- binded_df %>%
             Points = sum(Points),
             GD = sum(Actual_GD),
             xGD = round(sum(x_GD),1),
-            Differential = sum(sum(Actual_GD-x_GD)))%>%
+            Differential = sum(sum(Actual_GD-x_GD)),
+            WP = sum(W/most_recent_games))%>%
   mutate(Rank_GF = rank(desc(Total_GF), ties.method = 'min'))%>%
   mutate(Rank_GA = rank(Total_GA, ties.method = 'min'))%>%
   mutate(Rank_xG = rank(desc(Total_xG), ties.method = 'min'))%>%
@@ -133,9 +136,9 @@ ranking_df <- binded_df %>%
            Rank_GA+
            Rank_GF)%>%
   mutate(Power_Ranking = rank(Power_Calc, ties.method = 'min'))%>%
-  mutate(Season_xG = (Total_GF/6)*38)%>%
-  mutate(Season_xGA = (Total_GA/6)*38)%>%
-  mutate(xPosition_form = round(8.133 +(Season_xG*-0.181)+(Season_xGA *0.228),1))
+  mutate(Season_GF = (Total_GF/6)*38)%>%
+  mutate(Season_GA = (Total_GA/6)*38)%>%
+  mutate(xPosition_form = round(14.706 +(Season_GF*-0.038)+(Season_GA *0.120)+(WP*-22.299),1))
 
 ranking_df <- left_join(ranking_df,all_games_df, by = c("Team"="Team"))
 
@@ -184,7 +187,7 @@ joined_df <- left_join(ranking_df,icons_df, by = c("Team"="Home"))
 joined_df
 
 table_df <- joined_df %>%
-  mutate(Change = paste0("(",Power_Ranking - Prev_Power_Ranking,")"))%>%
+  mutate(Change = paste0("(",Prev_Power_Ranking - Power_Ranking,")"))%>%
   select(Power_Ranking,Change,iconurl,Team,Points,Total_GF,Total_xG,Total_GA,Total_xGA, GD, xGD,Differential, xPosition_form, xPosition_season)%>%
   arrange(Power_Ranking)
 
@@ -265,6 +268,7 @@ reactable(
     ),
       Differential = colDef(
         name = "Goal Differential",
+        maxWidth = 125,
         align = "center",
         cell = data_bars(table_df,
                          text_position = "outside-end",
@@ -272,14 +276,14 @@ reactable(
                          number_fmt = number_format(accuracy = 0.1))
       ),
     xPosition_form = colDef(
-      maxWidth = 80,
+      maxWidth = 100,
       name = "Relative Position",
       align = "center",
       style = color_scales(table_df,
                            colors = temppal_rev)
     ),
     xPosition_season = colDef(
-      maxWidth = 80,
+      maxWidth = 100,
       name = "Season Expectation",
       align = "center",
       style = color_scales(table_df,
