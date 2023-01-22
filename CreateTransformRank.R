@@ -8,9 +8,8 @@ library(worldfootballR)
 temppal <- c('#36a1d6', '#76b8de', '#a0bfd9', '#ffffff', '#d88359', '#d65440', '#c62c34')
 temppal_rev <- c('#c62c34','#d65440', '#d88359', '#ffffff','#a0bfd9', '#76b8de', '#36a1d6')
 
-Season_H2H <- fb_match_results(country = "ENG", gender = "M", season_end_year = 2023, tier = "1st")
-epl_2023_urls <- fb_match_urls(country = "ENG", gender = "M", season_end_year = 2023, tier="1st")
-advanced_match_stats <- fb_advanced_match_stats(match_url = epl_2023_urls, stat_type = "summary", team_or_player = "team")
+Season_H2H <- read.csv('results.csv')
+advanced_match_stats <- read.csv('currentseasonsummaries.csv')
 
 advanced_match_stats_Columns <- advanced_match_stats%>%
   select(Game_URL,Team,Home_Away, Sh, SoT, SCA_SCA, Prog_Passes)
@@ -192,14 +191,14 @@ table_df <- joined_df %>%
   arrange(Power_Ranking)
 
 
-reactable(
+power_ranking_table <- reactable(
   table_df,
   theme = fivethirtyeight(header_font_size = 10),
   pagination = FALSE,
   columnGroups = list(
     colGroup(name = "Actual", columns = c("Total_GF","Total_GA","GD")),
     colGroup(name = "Expected", columns = c("Total_xG","Total_xGA","xGD")),
-    colGroup(name = "Relative Position", columns = c("xPosition_form", "xPosition_season"))
+    colGroup(name = "Relative Performance", columns = c("xPosition_form", "xPosition_season"))
   ),
   columns = list(
     Power_Ranking = colDef(name = "Power Rank (Change)",
@@ -293,3 +292,7 @@ reactable(
   )%>%
   add_title("Premier League Power Rankings - Last 6 games", margin = margin(0, 0, 10, 0)) %>%
   add_source("Table created by: Matt Harrison with {reactablefmtr} •  Data: fbref.com", font_size = 12)
+
+power_ranking_table
+power_ranking_table %>%
+  save_reactable_test("table.html")
