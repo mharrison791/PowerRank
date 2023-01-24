@@ -2,18 +2,16 @@ library(tidyverse)
 library(worldfootballR)
 
 #Load current Data
-current_data <- read.csv('currentseasonsummaries.csv')
+current_data <-read_csv("currentseasonsummaries.csv",
+                        col_types = cols(...1 = col_skip(), X = col_skip()))
 current_urls <- current_data %>%
   select(Game_URL)
 
 #Get all season match URLs
 epl_2023_urls <- fb_match_urls(country = "ENG", gender = "M", season_end_year = 2023, tier="1st")
-#Compare all urls to current data
-current_urls <- current_urls %>%
-  mutate(Compare = current_urls$Game_URL %in% epl_2023_urls)%>%
-  filter(Compare = FALSE) #keep just new matches
-#new matches list
-new_urls <- current_urls$Game_URL
+
+new_urls <- setdiff(epl_2023_urls,current_urls$Game_URL)
+
 #get new matches data
 advanced_match_stats <- fb_advanced_match_stats(match_url = new_urls, stat_type = "summary", team_or_player = "team")
 #create new data

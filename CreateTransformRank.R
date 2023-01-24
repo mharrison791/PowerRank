@@ -5,8 +5,8 @@ library(scales)
 library(worldfootballR)
 
 
-temppal <- c('#36a1d6', '#76b8de', '#a0bfd9', '#ffffff', '#d88359', '#d65440', '#c62c34')
-temppal_rev <- c('#c62c34','#d65440', '#d88359', '#ffffff','#a0bfd9', '#76b8de', '#36a1d6')
+temppal <- c('#540202', '#AB3131', '#EDE0A6', '#799163','#507B58')
+temppal_rev <- c('#507B58','#799163', '#EDE0A6', '#AB3131','#540202')
 
 Season_H2H <- read.csv('results.csv')
 advanced_match_stats <- read.csv('currentseasonsummaries.csv')
