@@ -296,3 +296,5 @@ power_ranking_table <- reactable(
 power_ranking_table
 power_ranking_table %>%
   save_reactable_test("table.html")
+
+webshot2::webshot('table.html', "rtableSnapshot.png",vwidth = 1200, vheight = 800)
