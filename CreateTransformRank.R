@@ -5,14 +5,11 @@ library(scales)
 library(worldfootballR)
 
 
+
 temppal <- c('#540202', '#AB3131', '#EDE0A6', '#799163','#507B58')
 temppal_rev <- c('#507B58','#799163', '#EDE0A6', '#AB3131','#540202')
 
-Season_H2H <- read.csv('results.csv')
-advanced_match_stats <- read.csv('currentseasonsummaries.csv')
-
-advanced_match_stats_Columns <- advanced_match_stats%>%
-  select(Game_URL,Team,Home_Away, Sh, SoT, SCA_SCA, Prog_Passes)
+Season_H2H <- fb_match_results(country = "ENG", gender = "M", season_end_year = 2024, tier = "1st")
 
 
 image_url <- 'https://images.fotmob.com/image_resources/logo/teamlogo/'
@@ -27,9 +24,10 @@ icons_df <- df %>%
   distinct(Home)%>%
   arrange(Home)
 
-icons_df$Ids <- c('9825', '10252','8678', '9937', '10204', '8455', '9826','8668','9879','8463','8197','8650','8456','10260','10261','10203','8466','8586','8654','8602')
+icons_df$Ids <- c('9825', '10252', '8678', '9937', '10204','8191', '8455', '9826','8668','9879','8650','8346','8456','10260','10261','10203','8657','8586','8654','8602')
 icons_df$sourceurl <- image_url
 icons_df$iconurl <- paste0(icons_df$sourceurl,icons_df$Ids,".png")
+write.csv(icons_df,"icons.csv")
 
 df$MatchID <- seq.int(nrow(df))
 
@@ -63,28 +61,23 @@ pivot_df <- pivot_df %>%
   mutate(Actual_xGA = ifelse(Location == "Home", `Away_xG`,
                              `Home_xG`))
 
-list_of_teams <- unique(pivot_df$Team)
+pivot_df <- pivot_df %>% 
+  group_by(Team) %>% 
+  mutate(rnk = row_number(Wk))
+pivot_df <- pivot_df %>% 
+  group_by(Team) %>%
+  mutate(RevRnk = rev(rnk))
 
-binded_df <- data.frame()
-
-for (i in list_of_teams){
-  d <- pivot_df %>%
-    filter(Team == i)
-  d$GameNumber <- seq.int(nrow(d))
-  d$RecentGames <- rev(d$GameNumber)
-  binded_df <- rbind(binded_df,d)
-}
-
-binded_df <- binded_df %>%
+pivot_df <- pivot_df %>%
   group_by(Team) %>%
   mutate(cum_Actual_Goals = cumsum(Actual_GF))%>%
   mutate(cum_XGF = cumsum(Actual_xG))%>%
   mutate(W = if_else(Points==3,1,0))
 
-write.csv(binded_df, 'completeresults.csv')
+#write.csv(pivot_df, 'completeresults.csv')
 
 #### All Games
-all_games_df <- binded_df %>%
+all_games_df <- pivot_df %>%
   group_by(Team)%>%
   summarise(MP = n(),
     Total_GF = sum(Actual_GF),
@@ -106,8 +99,8 @@ all_games_df <- binded_df %>%
 #### Get most recent games
 most_recent_games <- 6
 
-ranking_df <- binded_df %>%
-  filter(RecentGames <= most_recent_games)%>%
+ranking_df <- pivot_df %>%
+  filter(RevRnk <= most_recent_games)%>%
   group_by(Team)%>%
   summarise(Total_GF = sum(Actual_GF),
             Total_GA = sum(Actual_GA),
@@ -142,7 +135,7 @@ ranking_df <- binded_df %>%
 ranking_df <- left_join(ranking_df,all_games_df, by = c("Team"="Team"))
 
 prev_ranking_df <- binded_df %>%
-  filter(RecentGames > 1 & RecentGames <= most_recent_games + 1)%>%
+  filter(Wk > 1 & RecentGames <= Wk + 1)%>%
   group_by(Team)%>%
   summarise(Total_GF = sum(Actual_GF),
             Total_GA = sum(Actual_GA),
@@ -173,6 +166,13 @@ prev_ranking_df <- binded_df %>%
 
 ranking_df <- left_join(ranking_df,prev_ranking_df, by = c("Team"="Team"))
 
+###Get Current Table
+current_table <- fb_season_team_stats(country = "ENG", gender = "M", season_end_year = "2024", tier = "1st", stat_type = "league_table")%>%
+  select(Squad,Rk)
+
+ranking_df <- left_join(ranking_df,current_table, by = c("Team"="Squad"))
+
+write.csv(ranking_df,"ranking_dataset.csv")
 #####Plot
 
 binded_df %>%
@@ -183,7 +183,6 @@ binded_df %>%
   theme_dark()
 
 joined_df <- left_join(ranking_df,icons_df, by = c("Team"="Home"))
-joined_df
 
 table_df <- joined_df %>%
   mutate(Change = paste0("(",Prev_Power_Ranking - Power_Ranking,")"))%>%
@@ -298,3 +297,97 @@ power_ranking_table %>%
   save_reactable_test("table.html")
 
 webshot2::webshot('table.html', "rtableSnapshot.png",vwidth = 1200, vheight = 800)
+
+
+df_with_percentiles <- ranking_df%>%
+  mutate(percent_GF = rank(Total_GF)/length(Total_GF))%>%
+  mutate(percent_GA = rank(desc(Total_GA))/length(Total_GA))%>%
+  mutate(percent_xG = rank(Total_xG)/length(Total_xG))%>%
+  mutate(percent_xGA = rank(desc(Total_xGA))/length(Total_xGA))%>%
+  mutate(percent_points = rank(Points)/length(Points))%>%
+  mutate(percent_GD = rank(GD)/length(GD))%>%
+  mutate(percent_xGD = rank(xGD)/length(xGD))%>%
+  mutate(percent_Diff = rank(Differential)/length(Differential))%>%
+  select(Team,Total_GF,Total_GA,Total_xG,Total_xGA,GD,Points,xGD,Differential,
+         percent_GF,percent_GA,percent_xG,percent_xGA,percent_GD,percent_points,percent_xGD,percent_Diff)
+
+team_percentiles <- df_with_percentiles%>%
+  select(Team,percent_GF,percent_GA,percent_xG,percent_xGA,percent_GD,percent_points,percent_xGD,percent_Diff)%>%
+  rename("Goals For" = percent_GF)%>%
+  rename("Goals Against" = percent_GA)%>%
+  rename("Expected Goals For" = percent_xG)%>%
+  rename("Expected Goals Against" = percent_xGA)%>%
+  rename("Points" = percent_points)%>%
+  rename("Goal Difference" = percent_GD)%>%
+  rename("Expected Goal Difference" = percent_xGD)%>%
+  rename("Differential" = percent_Diff)%>%
+  pivot_longer(!Team, names_to = "Dimension", values_to = "Percentile")
+
+Team_Metrics <- df_with_percentiles %>%
+  select(Team,Total_GF,Total_GA,Total_xG,Total_xGA,GD,Points,xGD,Differential)%>%
+  rename("Goals For" = Total_GF)%>%
+  rename("Goals Against" = Total_GA)%>%
+  rename("Expected Goals For" = Total_xG)%>%
+  rename("Expected Goals Against" = Total_xGA)%>%
+  rename("Points" = Points)%>%
+  rename("Goal Difference" = GD)%>%
+  rename("Expected Goal Difference" = xGD)%>%
+  rename("Differential" = Differential)%>%
+  pivot_longer(!Team, names_to = "Dimension", values_to = "Metric")
+
+team_data <- left_join(Team_Metrics,team_percentiles, by=c("Team"="Team","Dimension"="Dimension"))
+
+t <- "Everton"
+single_team <- team_data%>%
+  filter(Team==t)
+
+team <- reactable(
+  single_team,
+  theme = fivethirtyeight(header_font_size = 10),
+  pagination = FALSE,
+  columns = list(
+    Team = colDef(show = FALSE),
+    Dimension = colDef(
+      maxWidth = 175,
+      name= ""
+    ),
+    Metric = colDef(maxWidth = 60,
+                    name = "Total",
+                    align = "center"),
+    Percentile = colDef(
+      cell = data_bars(single_team,
+                       text_position = "inside-end", 
+                       number_fmt = scales::percent,
+                       fill_color = temppal,
+                       max_value = 1)
+    )
+  )
+)
+
+icon_selection <- icons_df%>%
+  filter(Home==t)%>%
+  mutate(html = paste0("<img src='",iconurl,"'width='50' height='50'>"))
+
+single_team <- team %>%
+  add_title(
+    title = html(icon_selection$html),
+    align = 'left'
+  )%>%
+  add_subtitle(
+    subtitle = icon_selection$Home
+  )
+
+single_team %>%
+  save_reactable_test(paste0(t,".html"))
+
+webshot2::webshot(paste0(t,".html"), paste0(t,"rtableSnapshot.png"),vwidth = 600, vheight = 400)
+
+ggplot(single_team, aes(x=Dimension, y=Percentile)) +
+  geom_bar(stat="identity", fill="steelblue")+
+  geom_text(aes(label=Metric), hjust=0, color="black", size=3.5)+
+  scale_y_continuous(labels = scales::percent_format(scale = 1))+
+  theme_minimal()+
+  theme(axis.text.y=element_text(hjust=0,vjust=0),
+        axis.title.y = element_blank())+
+  coord_flip()
+
